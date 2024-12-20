@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Connect - Vellore</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyARNmhWLsCS7qROjUEaGb9yVwhVpzFKvL8&callback=initMap" async defer></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #fff;
+            color: #000;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        body.dark-mode {
+            background-color: #121212;
+            color: #e0e0e0;
+        }
+
+        #map {
+            height: 70vh;
+            width: 100%;
+        }
+
+        .controls {
+            padding: 1rem;
+            background-color: #f8f9fa;
+            transition: background-color 0.3s;
+        }
+
+        .dark-mode .controls {
+            background-color: #1e1e1e;
+        }
+
+        .controls input, .controls select {
+            margin-right: 0.5rem;
+            padding: 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #fff;
+            color: #000;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .dark-mode .controls input, .dark-mode .controls select {
+            background-color: #2c2c2c;
+            color: #e0e0e0;
+            border: 1px solid #444;
+        }
+
+        .resource-list {
+            max-height: 20vh;
+            overflow-y: auto;
+            border-top: 1px solid #ddd;
+            padding: 1rem;
+            background-color: #fff;
+            transition: background-color 0.3s;
+        }
+
+        .dark-mode .resource-list {
+            background-color: #1e1e1e;
+            border-top: 1px solid #444;
+        }
+
+        .resource-item {
+            margin-bottom: 1rem;
+        }
+
+        .details {
+            padding: 1rem;
+            background-color: #f1f1f1;
+            border-top: 1px solid #ddd;
+            transition: background-color 0.3s;
+        }
+
+        .dark-mode .details {
+            background-color: #2c2c2c;
+            border-top: 1px solid #444;
+        }
+
+        .details h3 {
+            margin-top: 0;
+        }
+
+        .toggle-dark-mode {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.5rem;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .toggle-dark-mode:hover {
+            background-color: #0056b3;
+        }
+
+        .dark-mode .toggle-dark-mode {
+            background-color: #444;
+        }
+
+        .dark-mode .toggle-dark-mode:hover {
+            background-color: #666;
+        }
+    </style>
+</head>
+<body>
+    <button class="toggle-dark-mode" onclick="toggleDarkMode()">Toggle Dark Mode</button>
+    <div class="controls">
+        <input type="text" id="searchBox" placeholder="Search resources (e.g., food, shelter)">
+        <select id="filter">
+            <option value="">All</option>
+            <option value="food">Food Banks</option>
+            <option value="shelter">Shelters</option>
+            <option value="clinic">Medical Clinics</option>
+        </select>
+        <button onclick="searchResources()">Search</button>
+    </div>
+    <div id="map"></div>
+    <div class="resource-list" id="resourceList"></div>
+    <div class="details" id="details"></div>
+
+    <script>
+        let map;
+        let markers = [];
+        const resources = [
+    { name: "Community Food Bank", type: "food", lat: 12.9261, lng: 79.1333, details: "Open 9 AM - 5 PM", contact: "123-456-7890", address: "123 Main St, Vellore, TN" },
+    { name: "Downtown Shelter", type: "shelter", lat: 12.9285, lng: 79.1348, details: "Open 24/7", contact: "987-654-3210", address: "456 Elm St, Vellore, TN" },
+    { name: "City Medical Clinic", type: "clinic", lat: 12.9233, lng: 79.1295, details: "Open 8 AM - 8 PM", contact: "555-555-5555", address: "789 Oak St, Vellore, TN" },
+    { name: "Eastside Food Bank", type: "food", lat: 12.9248, lng: 79.1312, details: "Open 10 AM - 4 PM", contact: "222-333-4444", address: "101 Maple St, Vellore, TN" },
+    { name: "Westside Shelter", type: "shelter", lat: 12.9275, lng: 79.1361, details: "Open 6 PM - 6 AM", contact: "666-777-8888", address: "202 Pine St, Vellore, TN" },
+    { name: "Uptown Medical Center", type: "clinic", lat: 12.9250, lng: 79.1300, details: "Open 7 AM - 7 PM", contact: "999-888-7777", address: "303 Cedar St, Vellore, TN" },
+    { name: "Vellore Government Hospital", type: "clinic", lat: 12.9216, lng: 79.1325, details: "Open 24/7", contact: "0416-222-1234", address: "Government Hospital Rd, Adukamparai, Vellore, TN 632011" },
+    { name: "Golden Temple Information Center", type: "shelter", lat: 12.9194, lng: 79.1279, details: "Open 8 AM - 8 PM", contact: "0416-224-4567", address: "Thirumalaikodi, Vellore, TN 632055" }
+];
+
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: 12.9165, lng: 79.1325 }, // Coordinates for Vellore, TN
+                zoom: 13
+            });
+
+            loadResources();
+        }
+
+        
+        function loadResources() {
+    clearMarkers();
+
+    const listElement = document.getElementById("resourceList");
+    listElement.innerHTML = "";
+
+    resources.forEach(resource => {
+        const marker = new google.maps.Marker({
+            position: { lat: resource.lat, lng: resource.lng },
+            map,
+            title: resource.name,
+            label: {
+                text: resource.name,
+                color: "#000", // Customize label color
+                fontSize: "12px", // Customize font size
+                fontWeight: "bold" // Customize font weight
+            }
+        });
+
+        markers.push(marker);
+
+        const listItem = document.createElement("div");
+        listItem.classList.add("resource-item");
+        listItem.innerHTML = `<strong>${resource.name}</strong><br>${resource.details}`;
+        listElement.appendChild(listItem);
+
+        listItem.addEventListener("click", () => {
+            map.setCenter(marker.getPosition());
+            displayDetails(resource);
+        });
+
+        marker.addListener("click", () => {
+            displayDetails(resource);
+        });
+    });
+}
+
+
+        function clearMarkers() {
+            markers.forEach(marker => marker.setMap(null));
+            markers = [];
+        }
+
+        function searchResources() {
+            const searchBox = document.getElementById("searchBox").value.toLowerCase();
+            const filter = document.getElementById("filter").value;
+
+            const filteredResources = resources.filter(resource => {
+                const matchesSearch = resource.name.toLowerCase().includes(searchBox);
+                const matchesFilter = filter ? resource.type === filter : true;
+                return matchesSearch && matchesFilter;
+            });
+
+            clearMarkers();
+
+            const listElement = document.getElementById("resourceList");
+            listElement.innerHTML = "";
+
+            filteredResources.forEach(resource => {
+                const marker = new google.maps.Marker({
+                    position: { lat: resource.lat, lng: resource.lng },
+                    map,
+                    title: resource.name
+                });
+
+                markers.push(marker);
+
+                const listItem = document.createElement("div");
+                listItem.classList.add("resource-item");
+                listItem.innerHTML = `<strong>${resource.name}</strong><br>${resource.details}`;
+                listElement.appendChild(listItem);
+
+                listItem.addEventListener("click", () => {
+                    map.setCenter(marker.getPosition());
+                    displayDetails(resource);
+                });
+
+                marker.addListener("click", () => {
+                    displayDetails(resource);
+                });
+            });
+        }
+
+        function displayDetails(resource) {
+            const detailsElement = document.getElementById("details");
+            detailsElement.innerHTML = `
+                <h3>${resource.name}</h3>
+                <p><strong>Type:</strong> ${resource.type.charAt(0).toUpperCase() + resource.type.slice(1)}</p>
+                <p><strong>Details:</strong> ${resource.details}</p>
+                <p><strong>Contact:</strong> ${resource.contact}</p>
+                <p><strong>Address:</strong> ${resource.address}</p>
+            `;
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle("dark-mode");
+        }
+    </script>
+</body>
+</html>
